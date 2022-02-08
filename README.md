@@ -1,4 +1,4 @@
-# notAnImage Project
+#notAnImage Project
 
 The main aim of that project is to be able store image files as a simple text file. 
 The idea is getting every single pixel's RGB value and writing them into a txt file line by line.
