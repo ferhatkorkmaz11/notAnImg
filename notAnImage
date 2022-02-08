@@ -1,0 +1,156 @@
+import os.path
+
+from PIL import Image
+import numpy as np
+from tkinter import Tk
+import tkinter.filedialog
+
+NOT_TXT_EXCEPTION = "Please make sure that you are opening a txt file."
+NOT_VALID_IMAGE_EXCEPTION = "Please make sure that you are opening a valid image file (jpg, jpeg, png)."
+
+
+# This function returns the number of commas and their indices from a given string.
+def how_many_commas_and_where(text):
+    count = 0
+    locs = []
+    for i in range(len(text)):
+        if text[i] == ',':
+            count = count + 1
+            locs.append(i)
+    return count, locs
+
+
+# This function writes the image date into a specified txt file.
+# compression rate = 2 -> 1 / 4 total pixel size
+def save_image(imagePath, savePath, compressionRate):
+    imagePath = str(imagePath)
+    savePath = str(savePath)
+    im = Image.open(r"" + imagePath)
+    f = open(savePath, "w")
+    px = im.load()
+    x = im.size[0]
+    y = im.size[1]
+    while x % compressionRate != 0:
+        x = x - 1
+    while y % compressionRate != 0:
+        y = y - 1
+
+    f.write(str(int(x / compressionRate)) + "," + str(int(y / compressionRate)) + "\n")
+    """f.write(str(x)+ "," + str(y) +"\n")
+    for i in range(x):
+        for j in range(y):
+            rData = 0
+            gData = 0
+            bData = 0
+            for k in range(compressionRate):
+                rData = rData + px[i + k, j + k][0]
+                gData = gData + px[i + k, j + k][1]
+                bData = bData + px[i + k, j + k][2]
+            rData = px[i, j][0]
+            rData = px[i, j][1]
+            rData = px[i, j][2]
+            f.write(
+                str(i) + "," + str(j) + "," + str(px[i, j][0]) + "," + str(px[i, j][1]) + "," + str(px[i, j][2]) + "\n")"""
+    for i in range(int(x / compressionRate)):
+        for j in range(int(y / compressionRate)):
+            rData = 0
+            gData = 0
+            bData = 0
+            for k in range(compressionRate):
+                rData = rData + px[i * compressionRate + k, j * compressionRate + k][0]
+                gData = gData + px[i * compressionRate + k, j * compressionRate + k][1]
+                bData = bData + px[i * compressionRate + k, j * compressionRate + k][2]
+            rData = rData / compressionRate 
+            gData = gData / compressionRate 
+            bData = bData / compressionRate 
+            f.write(str(i) + "," + str(j) + "," + str(int(rData)) + "," + str(int(gData)) + "," + str(int(bData)) + "\n")
+
+
+
+# This function opens an image from the data that was written into a txt file
+def open_image(txtPath):
+    txtPath = str(txtPath)
+    f = open(txtPath, "r")
+    xSize = 0
+    ySize = 0
+    rgb = {}
+    for line in f:
+        curData = how_many_commas_and_where(line)
+        if curData[0] == 1:
+            xSize = line[0:curData[1][0]]
+            ySize = line[curData[1][0] + 1:len(line) - 1]
+        else:
+            key = line[0: curData[1][0]] + "," + line[curData[1][0] + 1: curData[1][1]]
+            value1 = int(line[curData[1][1] + 1: curData[1][2]])
+            value2 = int(line[curData[1][2] + 1: curData[1][3]])
+            value3 = int(line[curData[1][3] + 1: len(line) - 1])
+            rgb[key] = [value1, value2, value3]
+    xSize = int(xSize)
+    ySize = int(ySize)
+    data = np.zeros((ySize, xSize, 3), dtype=np.uint8)
+    for i in range(xSize):
+        for j in range(ySize):
+            curR = rgb.get(str(i) + "," + str(j))[0]
+            curG = rgb.get(str(i) + "," + str(j))[1]
+            curB = rgb.get(str(i) + "," + str(j))[2]
+            data[j, i] = [curR, curG, curB]
+    outputimg = Image.fromarray(data)
+    outputimg.show()
+
+
+# This function opens a gui to choose a file and checks whether its extension is what is wanted for tasks such as opening a txt or an image.
+# selection = 0 -> txt
+# selection = 1 -> image
+def gui_file_path(selection):
+    root = Tk()
+    filepath = str(tkinter.filedialog.askopenfilename())
+    print(os.path.splitext(filepath)[1])
+    if selection == 0 and os.path.splitext(filepath)[1] != ".txt":
+        root.destroy()
+        return NOT_TXT_EXCEPTION
+    elif selection == 1 and (os.path.splitext(filepath)[1] != ".jpg" and os.path.splitext(filepath)[1] != ".jpeg"
+                             and os.path.splitext(filepath)[1] != ".png"):
+        root.destroy()
+        return NOT_VALID_IMAGE_EXCEPTION
+    root.destroy()
+    return filepath
+
+
+# This function opens a gui to choose a folder and returns that path
+def gui_folder_path():
+    root = Tk()
+    folderpath = str(tkinter.filedialog.askdirectory())
+    root.destroy()
+    return folderpath
+
+
+if __name__ == "__main__":
+    option = 0
+    imgpath = ""
+    savpath = ""
+    txtpath = ""
+
+    while option != -1:
+        option = int(input("1-)Save An Image to TXT\n2-)Open an Image from TXT\n-1 to Exit the program."))
+
+        if option == 1:
+            print("Where is the source image?:\n")
+            imgpath = gui_file_path(1)
+            if imgpath == NOT_VALID_IMAGE_EXCEPTION:
+                print(">>NOT_VALID_IMAGE_EXCEPTION<<", NOT_VALID_IMAGE_EXCEPTION)
+            else:
+                print("Where do you want to save the image as TXT file?:\n")
+                savpath = gui_folder_path()
+                filename = input("What will you call that txt file?:\n")
+                compRate = int(input("What is the compression rate?:\n"))
+                save_image(imgpath, savpath + "/" + filename + ".txt", compRate)
+        elif option == 2:
+            print("Where the txt file is saved?:\n")
+            print("Opening... Please wait.")
+            txtpath = gui_file_path(0)
+            if txtpath == NOT_TXT_EXCEPTION:
+                print(">>NOT_TXT_EXCEPTION<<", NOT_TXT_EXCEPTION)
+            else:
+                open_image(txtpath)
+        elif option == -1:
+            exit(0)
